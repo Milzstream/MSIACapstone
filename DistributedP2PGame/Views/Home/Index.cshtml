@@ -1,24 +1,50 @@
-﻿<div class="jumbotron">
-    <h1>ASP.NET</h1>
-    <p class="lead">ASP.NET is a free web framework for building great Web sites and Web applications using HTML, CSS, and JavaScript.</p>
-    <p><a href="https://asp.net" class="btn btn-primary btn-lg">Learn more &raquo;</a></p>
+﻿<h3 class="text-center">Use Arrow Keys to Move Left and Right, and SpaceBar to shoot stuffz!</h3>
+<div class="col-lg-2">
+    <div class="form-group">
+        <label>Name</label>
+        <input id="name" type="text" class="form-control" maxlength="4" />
+    </div>
+    <button class="btn btn-default" onclick="InitGame($('#name').val())">Start Game</button>
+    <br />
+    <h4 class="text-center">Discussion</h4>
+    <ul id="discussion" style="border: 1px dashed black; min-height: 50px; overflow-wrap: break-word"></ul>
+    <br />
+    <div class="form-group">
+        <label>Message to Send</label>
+        <input type="text" class="form-control" id="message" />
+    </div>
+    <input type="button" class="btn btn-default" id="sendmessage" value="Send" />
 </div>
-<div class="row">
-    <div class="col-md-4">
-        <h2>Getting started</h2>
-        <p>ASP.NET Web API is a framework that makes it easy to build HTTP services that reach
-        a broad range of clients, including browsers and mobile devices. ASP.NET Web API
-        is an ideal platform for building RESTful applications on the .NET Framework.</p>
-        <p><a class="btn btn-default" href="https://go.microsoft.com/fwlink/?LinkId=301870">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Get more libraries</h2>
-        <p>NuGet is a free Visual Studio extension that makes it easy to add, remove, and update libraries and tools in Visual Studio projects.</p>
-        <p><a class="btn btn-default" href="https://go.microsoft.com/fwlink/?LinkId=301871">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Web Hosting</h2>
-        <p>You can easily find a web hosting company that offers the right mix of features and price for your applications.</p>
-        <p><a class="btn btn-default" href="https://go.microsoft.com/fwlink/?LinkId=301872">Learn more &raquo;</a></p>
-    </div>
+<div id="game" class="col-lg-10">
+
 </div>
+
+@section scripts{
+    @Scripts.Render("~/bundles/game")
+    <script src="signalr/hubs"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            // Declare a proxy to reference the hub.
+            var chat = $.connection.playerHub;
+
+            // Create a function that the hub can call to broadcast messages.
+            chat.client.broadcastMessage = function (name, message) {
+                // Html encode display name and message.
+                var encodedName = $('<div />').text(name).html();
+                var encodedMsg = $('<div />').text(message).html();
+                // Add the message to the page.
+                $('#discussion').append('<li><strong>' + encodedName
+                    + '</strong>:&nbsp;&nbsp;' + encodedMsg + '</li>');
+            };
+
+            $.connection.hub.start().done(function () {
+                $('#sendmessage').click(function () {
+                    // Call the Send method on the hub.
+                    chat.server.send($('#name').val(), $('#message').val());
+                    // Clear text box and reset focus for next comment.
+                    $('#message').val('').focus();
+                });
+            });
+        });
+    </script>
+}
