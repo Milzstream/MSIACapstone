@@ -1,10 +1,10 @@
 ﻿<h3 class="text-center">Use Arrow Keys to Move Left and Right, and SpaceBar to shoot stuffz!</h3>
-<div class="col-lg-2">
+<div class="col-lg-3">
     <div class="form-group">
         <label>Name</label>
         <input id="name" type="text" class="form-control" maxlength="4" />
     </div>
-    <button class="btn btn-default" onclick="InitGame($('#name').val())">Start Game</button>
+    <button class="btn btn-default" onclick="Game.SetPlayerName($('#name').val())">Start Game</button>
     <br />
     <h4 class="text-center">Discussion</h4>
     <ul id="discussion" style="border: 1px dashed black; min-height: 50px; overflow-wrap: break-word"></ul>
@@ -15,36 +15,39 @@
     </div>
     <input type="button" class="btn btn-default" id="sendmessage" value="Send" />
 </div>
-<div id="game" class="col-lg-10">
+<div id="game" class="col-lg-9">
 
 </div>
 
 @section scripts{
-    @Scripts.Render("~/bundles/game")
     <script src="signalr/hubs"></script>
+    @Scripts.Render("~/bundles/game")
     <script type="text/javascript">
         $(document).ready(function () {
+            //Setup Game Assets Url
+            Game.AssetsUrl = '@Request.Url.GetLeftPart(UriPartial.Authority)@Url.Content("~")Assets/';
+
             // Declare a proxy to reference the hub.
             var chat = $.connection.playerHub;
 
-            // Create a function that the hub can call to broadcast messages.
-            chat.client.broadcastMessage = function (name, message) {
-                // Html encode display name and message.
-                var encodedName = $('<div />').text(name).html();
-                var encodedMsg = $('<div />').text(message).html();
+                // Create a function that the hub can call to broadcast messages.
+                chat.client.broadcastMessage = function (name, message) {
+                    // Html encode display name and message.
+                    var encodedName = $('<div />').text(name).html();
+                    var encodedMsg = $('<div />').text(message).html();
                 // Add the message to the page.
                 $('#discussion').append('<li><strong>' + encodedName
                     + '</strong>:&nbsp;&nbsp;' + encodedMsg + '</li>');
-            };
+                };
 
             $.connection.hub.start().done(function () {
                 $('#sendmessage').click(function () {
-                    // Call the Send method on the hub.
-                    chat.server.send($('#name').val(), $('#message').val());
+                        // Call the Send method on the hub.
+                        chat.server.send($('#name').val(), $('#message').val());
                     // Clear text box and reset focus for next comment.
                     $('#message').val('').focus();
+                    });
                 });
-            });
         });
     </script>
 }
