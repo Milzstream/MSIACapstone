@@ -1,14 +1,16 @@
 ﻿// Game Container Obj
 var Game = {};
-Game.CurrentPlayer = null;
 Game.bullets = null;
 Game.cursors = null;
 Game.fireButton = null;
 Game.bulletTime = 0;
 Game.bullet = null;
 Game.CurrentPlayerName = 'Plr1';
+Game.CurrentPlayerId = null;
 Game.BackGround = null;
 Game.AssetsUrl = '';
+Game.Active = false;
+Game.MoveQueue = [];
 
 // Over arching Game Object
 $('#game').empty();
@@ -19,6 +21,7 @@ game.state.add('Game', Game);
 Game.SetPlayerName = function (currentPlayerName) {
     Game.CurrentPlayerName = currentPlayerName;
     game.state.start('Game');
+    Game.Active = true;
 };
 
 // Init the Game
@@ -61,17 +64,38 @@ Game.update = function () {
     // Scroll the Background
     Game.BackGround.tilePosition.y += 2;
 
-    //Player Movements to/from/client
-    if (Game.CurrentPlayer != null) {
-        //Not Moving
-        Game.CurrentPlayer.body.velocity.x = 0;
+    //Check Player ID
+    if (Game.CurrentPlayerId !== null) {
 
-        //Input Watch
-        if (Game.cursors.left.isDown) {
-            Game.CurrentPlayer.body.velocity.x = -600;
+        //Get Player
+        var player = Game.playerMap[Game.CurrentPlayerId];
+
+        //Player Movements to/from/client
+        if (player !== null) {
+            //Not Moving
+            player.body.velocity.x = 0;
+
+            //Input Watch
+            if (Game.cursors.left.isDown) {
+                player.body.velocity.x = -600;
+            }
+            else if (Game.cursors.right.isDown) {
+                player.body.velocity.x = 600;
+            }
+
+            //Send Movement to Server
+            if (!Phaser.Point.equals(player.body.velocity, new Phaser.Point(0, 0)) ) {
+                GameClient.movePlayer(Game.CurrentPlayerId, player.body.x);
+            }
+
+            //Set It Back
+            Game.playerMap[Game.CurrentPlayerId] = player;
         }
-        else if (Game.cursors.right.isDown) {
-            Game.CurrentPlayer.body.velocity.x = 600;
+
+        //If items in the move Queue
+        if (Game.MoveQueue.length > 0) {
+            var item = Game.MoveQueue.shift();
+            Game.moveOtherPlayer(item.ID, item.X);
         }
     }
 };
@@ -93,9 +117,9 @@ Game.addNewPlayer = function (playerObj) {
     //Add Player to Map
     Game.playerMap[playerObj.Id] = player;
 
-    //Set Current Player
-    if (Game.CurrentPlayer === null && playerObj.Id === GameClient.getHubID()) {
-        Game.CurrentPlayer = player;
+    //If client ID Null Set it
+    if (Game.CurrentPlayerId === null) {
+        Game.CurrentPlayerId = GameClient.getHubID();
     }
 };
 
@@ -103,9 +127,31 @@ Game.addNewPlayer = function (playerObj) {
 Game.getAllPlayers = function(playersArr) {
     //Loop through Array
     for (var i = 0; i < playersArr.length; i++) {
-        if (Game.playerMap[playersArr[i].Id] === null) {
-            Game.addNewPlayer(playersArr[i]);
+        //Pull out Player
+        if (playersArr[i] !== null) {1
+            var player = Game.playerMap[playersArr[i].Id];
+            if (!player) {
+                Game.addNewPlayer(playersArr[i]);
+            } else if (playersArr[i].Id !== Game.CurrentPlayerId) {
+                //If It has Moved
+                if (player.body.x !== playersArr[i].X) {
+                    //Move Other Player
+                    Game.MoveQueue.push({ ID: playersArr[i].Id, X: playersArr[i].X });
+                }
+            }
         }
+    }
+};
+
+//Move Other Player
+Game.moveOtherPlayer = function (playerId, xPosition) {
+    // Get Player
+    var player = Game.playerMap[playerId];
+
+    // If not null
+    if (player !== null) {
+        player.body.x = xPosition;
+        Game.playerMap[playerId] = player;
     }
 };
 
@@ -132,8 +178,10 @@ Game.movePlayer = function (playerObj) {
 
 //Remove a Player from the World
 Game.removePlayer = function (playerObj) {
-    Game.playerMap[playerObj.Id].destroy();
-    delete Game.playerMap[playerObj.Id];
+    if (Game.playerMap[playerObj.Id] !== null) {
+        Game.playerMap[playerObj.Id].destroy();
+        delete Game.playerMap[playerObj.Id];
+    }
 }
 
 // Fire Bullet Method

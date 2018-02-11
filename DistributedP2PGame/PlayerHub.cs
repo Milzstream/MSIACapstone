@@ -46,11 +46,13 @@ namespace DistributedP2PGame
         }
 
         //Move a specific Player
-        public void MovePlayer(int playerId, int x)
+        public void MovePlayer(string playerId, int x)
         {
-            Player player = players[playerId];
+            Player player = players.First(p => p.Id == playerId);
             player.X = x;
-            players[playerId] = player;
+            players.Remove(player);
+            players.Add(player);
+            Clients.Others.getAllPlayers(players.ToArray());
         }
 
         //Returns an array of all players

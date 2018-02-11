@@ -20,23 +20,30 @@ GameClient.getAllPlayers = function () {
 };
 
 //Move Player
-GameClient.movePlayer = function () {
-
+GameClient.movePlayer = function (playerId, xPosition) {
+    //console.log("Player: " + playerId + " | X Position: " + xPosition);
+    GameClient.playerHub.server.movePlayer(playerId, xPosition);
 };
 
 // ------------ > Calls From the Server Below (Calls to the Server Above) ---------->
 
 //Setup Hub New Player Call
 GameClient.playerHub.client.newPlayer = function (playerObj) {
-    Game.addNewPlayer(playerObj);
+    if (Game.Active) {
+        Game.addNewPlayer(playerObj);
+    }
 };
 
 // Calls the Remove Player Function
 GameClient.playerHub.client.removePlayer = function (playerObj) {
-    Game.removePlayer(playerObj);
+    if (Game.Active) {
+        Game.removePlayer(playerObj);
+    }
 };
 
 //Recieves all the Players
 GameClient.playerHub.client.getAllPlayers = function (playersArr) {
-    Game.getAllPlayers(playersArr);
+    if (Game.Active) {
+        Game.getAllPlayers(playersArr);
+    }
 };
