@@ -30,7 +30,7 @@ namespace DistributedP2PGame
         {
             //Add to List
             Random rand = new Random();
-            Player newPlayer = new Player() { Id = Context.ConnectionId, Name = name, X = rand.Next(20, 1000) };
+            Player newPlayer = new Player() { Id = Context.ConnectionId, Name = name, X = rand.Next(20, 1000), Bullets = new List<Bullet>() };
             players.Add(newPlayer);
 
             //Emit new Player
@@ -61,6 +61,24 @@ namespace DistributedP2PGame
             //Return to Caller
             Clients.Caller.getAllPlayers(players.ToArray());
         }
+
+        public void AddNewBullet(string playerId)
+        {
+            Player player = players.First(p => p.Id == playerId);
+            string bulletId = playerId + "-" + player.Bullets.Count;
+            player.Bullets.Add(new Bullet { Id = bulletId });
+            players.Remove(player);
+            players.Add(player);
+            Clients.All.getAllPlayers(players.ToArray());
+        }
+
+        //Save Bullet
+        public void SaveBulletInformation(Player playerObj)
+        {
+            players[players.IndexOf(playerObj)] = playerObj;
+            Clients.Others.getAllPlayers(players.ToArray());
+        }
+
     }
 
     //Player Obj
@@ -75,13 +93,16 @@ namespace DistributedP2PGame
         //Location
         public int X { get; set; }
 
+        //Bullets
+        public List<Bullet> Bullets { get; set; }
+
         public override bool Equals(object obj)
         {
             Player other = obj as Player;
 
-            if(other != null)
+            if (other != null)
             {
-                if(other.Id == Id)
+                if (other.Id == Id)
                 {
                     return true;
                 }
@@ -89,5 +110,11 @@ namespace DistributedP2PGame
 
             return false;
         }
+    }
+
+    //Bullet Object
+    public sealed class Bullet
+    {
+        public string Id { get; set; }
     }
 }

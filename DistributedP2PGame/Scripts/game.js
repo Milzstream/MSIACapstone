@@ -1,16 +1,15 @@
 ﻿// Game Container Obj
 var Game = {};
-Game.bullets = null;
 Game.cursors = null;
 Game.fireButton = null;
-Game.bulletTime = 0;
-Game.bullet = null;
 Game.CurrentPlayerName = 'Plr1';
 Game.CurrentPlayerId = null;
 Game.BackGround = null;
 Game.AssetsUrl = '';
 Game.Active = false;
 Game.MoveQueue = [];
+Game.MoveBulletsQueue = [];
+Game.BulletTime = 0;
 
 // Over arching Game Object
 $('#game').empty();
@@ -41,16 +40,17 @@ Game.preload = function () {
 Game.create = function () {
     //Setup Player Map
     Game.playerMap = {};
+    Game.bulletMap = {};
 
     //  The scrolling starfield background
     Game.BackGround = game.add.tileSprite(0, 0, 1024, 768, 'starfield');
 
-    Game.bullets = game.add.physicsGroup();
-    Game.bullets.createMultiple(32, 'bullet', false);
-    Game.bullets.setAll('checkWorldBounds', true);
-    Game.bullets.setAll('outOfBoundsKill', true);
+    Game.Bullets = game.add.physicsGroup();
+    Game.Bullets.createMultiple(32, 'bullet', false);
+    Game.Bullets.setAll('checkWorldBounds', true);
+    Game.Bullets.setAll('outOfBoundsKill', true);
 
-    //Call New Player
+    //Call New Player and New BulletGroup
     GameClient.askNewPlayer(Game.CurrentPlayerName);
     GameClient.getAllPlayers();
 
@@ -83,8 +83,16 @@ Game.update = function () {
                 player.body.velocity.x = 600;
             }
 
+            //If fire Button Triggered
+            if (Game.fireButton.isDown) {
+                if (game.time.time > Game.BulletTime) {
+                    GameClient.createNewBullet(Game.CurrentPlayerId);
+                    Game.BulletTime = game.time.time + 100;
+                }
+            }
+
             //Send Movement to Server
-            if (!Phaser.Point.equals(player.body.velocity, new Phaser.Point(0, 0)) ) {
+            if (!Phaser.Point.equals(player.body.velocity, new Phaser.Point(0, 0))) {
                 GameClient.movePlayer(Game.CurrentPlayerId, player.body.x);
             }
 
@@ -93,14 +101,49 @@ Game.update = function () {
         }
 
         //If items in the move Queue
-        if (Game.MoveQueue.length > 0) {
+        for (var i = 0; i < Game.MoveQueue.length; i++) {
             var item = Game.MoveQueue.shift();
-            Game.moveOtherPlayer(item.ID, item.X);
+            if (item) {
+                Game.moveOtherPlayer(item.ID, item.X);
+            }
+        }
+
+        //Loop through Bullets
+        for (var c = 0; c < Game.MoveBulletsQueue.length; c++) {
+            var bullet = Game.MoveBulletsQueue.shift();
+            if (bullet) {
+                Game.moveOtherBullet(bullet.BulletID, bullet.PlayerID);
+            }
         }
     }
 };
 
 //// --------- Custom Methods for Multiplayer/etc ----------------------------------------->
+//Updates the Player Locations
+Game.getAllPlayers = function (playersArr) {
+    //Loop through Array
+    for (var i = 0; i < playersArr.length; i++) {
+        //Pull out Player
+        if (playersArr[i] !== null) {
+            var player = Game.playerMap[playersArr[i].Id];
+            if (!player) {
+                Game.addNewPlayer(playersArr[i]);
+            } else if (playersArr[i].Id !== Game.CurrentPlayerId) {
+                //If Player has Moved
+                if (player.body.x !== playersArr[i].X) {
+                    //Move Other Player
+                    Game.MoveQueue.push({ ID: playersArr[i].Id, X: playersArr[i].X });
+                }
+            }
+            //If Bullets Fired/Moved
+            if (playersArr[i].Bullets.length > 0) {
+                for (var c = 0; c < playersArr[i].Bullets.length; c++) {
+                    Game.MoveBulletsQueue.push({ BulletID: playersArr[i].Bullets[c].Id, PlayerID: playersArr[i].Id });
+                }
+            }
+        }
+    }
+};
 
 //Add player to World
 Game.addNewPlayer = function (playerObj) {
@@ -123,58 +166,17 @@ Game.addNewPlayer = function (playerObj) {
     }
 };
 
-//Updates the Player Locations
-Game.getAllPlayers = function(playersArr) {
-    //Loop through Array
-    for (var i = 0; i < playersArr.length; i++) {
-        //Pull out Player
-        if (playersArr[i] !== null) {1
-            var player = Game.playerMap[playersArr[i].Id];
-            if (!player) {
-                Game.addNewPlayer(playersArr[i]);
-            } else if (playersArr[i].Id !== Game.CurrentPlayerId) {
-                //If It has Moved
-                if (player.body.x !== playersArr[i].X) {
-                    //Move Other Player
-                    Game.MoveQueue.push({ ID: playersArr[i].Id, X: playersArr[i].X });
-                }
-            }
-        }
-    }
-};
-
 //Move Other Player
 Game.moveOtherPlayer = function (playerId, xPosition) {
     // Get Player
     var player = Game.playerMap[playerId];
 
     // If not null
-    if (player !== null) {
+    if (player) {
         player.body.x = xPosition;
         Game.playerMap[playerId] = player;
     }
 };
-
-//Handles Movment of a player
-Game.movePlayer = function (playerObj) {
-    var player = Game.playerMap[playerObj.Id];
-
-    //Level Set Player Movement
-    player.body.velocity.x = 0;
-
-    //Input Watch
-    if (Game.cursors.left.isDown) {
-        player.body.velocity.x = -600;
-    }
-    else if (Game.cursors.right.isDown) {
-        player.body.velocity.x = 600;
-    }
-
-    //if (Game.fireButton.isDown) {
-    //    Game.fireBullet();
-    //}
-
-}
 
 //Remove a Player from the World
 Game.removePlayer = function (playerObj) {
@@ -184,132 +186,25 @@ Game.removePlayer = function (playerObj) {
     }
 }
 
-// Fire Bullet Method
-Game.fireBullet = function () {
-    if (game.time.time > Game.bulletTime) {
-        Game.bullet = Game.bullets.getFirstExists(false);
+//Move Bullet
+Game.moveOtherBullet = function (bulletId, playerId) {
+    //Get Bullet
+    var bullet = Game.bulletMap[bulletId];
+    var player = Game.playerMap[playerId]
 
-        if (Game.bullet) {
-            Game.bullet.reset(Game.player.x + 6, Game.player.y - 12);
-            Game.bullet.body.velocity.y = -600;
-            Game.bulletTime = game.time.time + 100;
+    //If Exists
+    if (player) {
+        if (bullet) {
+            bullet.body.velocity.y = -600;
+            Game.bulletMap[bulletId] = bullet;
+        } else {
+            bullet = game.add.sprite(player.body.x + 6, player.body.y - 12, 'bullet');
+            bullet.z = 2;
+            game.physics.arcade.enable(bullet);
+            bullet.body.velocity.y = -600;
+            bullet.checkWorldBounds = true;
+            bullet.outOfBoundsKill = true;
+            Game.bulletMap[bulletId] = bullet;
         }
     }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//var InitGame = function (name) {
-//    var $name = name;
-//    $("#game").empty();
-
-//    $(document).ready(function () {
-//        var game = new Phaser.Game(1024, 768, Phaser.AUTO, 'game', { preload: preload, create: create, update: update });
-
-//        function preload() {
-
-//            game.load.baseURL = 'http://localhost:50137/Assets/';
-//            game.load.crossOrigin = 'anonymous';
-
-//            game.load.image('ship', 'Ship/thrust_ship2.png');
-//            game.load.image('bullet', 'Ship/bullet0.png');
-//            game.load.image('starfield', 'Platform/starfield.png');
-//        }
-
-//        var player;
-//        var bullets;
-
-//        var cursors;
-//        var fireButton;
-
-//        var bulletTime = 0;
-//        var bullet;
-
-//        function create() {
-
-//            //  The scrolling starfield background
-//            starfield = game.add.tileSprite(0, 0, 1024, 768, 'starfield');
-
-//            bullets = game.add.physicsGroup();
-//            bullets.createMultiple(32, 'bullet', false);
-//            bullets.setAll('checkWorldBounds', true);
-//            bullets.setAll('outOfBoundsKill', true);
-
-//            var name = game.add.text(14, 40, $name, { font: '16px Arial', fill: '#74a6f7', align: 'center' });
-//            name.anchor.set(0.5);
-//            player = game.add.sprite(512, 718, 'ship');
-//            game.physics.arcade.enable(player);
-//            player.body.collideWorldBounds = true;
-//            player.addChild(name);
-
-
-//            cursors = game.input.keyboard.createCursorKeys();
-//            fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
-
-//        }
-
-//        function update() {
-//            //  Scroll the background
-//            starfield.tilePosition.y += 2;
-
-//            player.body.velocity.x = 0;
-
-//            if (cursors.left.isDown) {
-//                player.body.velocity.x = -600;
-//            }
-//            else if (cursors.right.isDown) {
-//                player.body.velocity.x = 600;
-//            }
-
-//            if (fireButton.isDown) {
-//                fireBullet();
-//            }
-
-//        }
-
-//        function fireBullet() {
-
-//            if (game.time.time > bulletTime) {
-//                bullet = bullets.getFirstExists(false);
-
-//                if (bullet) {
-//                    bullet.reset(player.x + 6, player.y - 12);
-//                    bullet.body.velocity.y = -600;
-//                    bulletTime = game.time.time + 100;
-//                }
-//            }
-
-//        }
-
-//        function render() {
-
-//        }
-
-//    });
-//};
+}

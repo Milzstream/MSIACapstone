@@ -14,9 +14,19 @@ GameClient.askNewPlayer = function (playerName) {
     GameClient.playerHub.server.newPlayer(playerName);
 };
 
+//Creates a player Bullet
+GameClient.createNewBullet = function (playerId) {
+    GameClient.playerHub.server.addNewBullet(playerId);
+};
+
 //Get All Players
 GameClient.getAllPlayers = function () {
     GameClient.playerHub.server.getAllPlayers();
+};
+
+//Save Bullet Information
+GameClient.saveBullet = function (playerObj) {
+    GameClient.playerHub.server.saveBulletInformation(playerObj);
 };
 
 //Move Player
