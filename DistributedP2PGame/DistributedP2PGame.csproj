@@ -206,6 +206,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Areas\HelpPage\HelpPage.css" />
+    <Content Include="Assets\Enemies\enemy-bullet.png" />
+    <Content Include="Assets\Enemies\invader32x32x4.png" />
+    <Content Include="Assets\Environment\explode.png" />
     <Content Include="Assets\Hero\sheet_hero_dead.png" />
     <Content Include="Assets\Hero\sheet_hero_duck.png" />
     <Content Include="Assets\Hero\sheet_hero_hurt.png" />

@@ -10,6 +10,12 @@ Game.Active = false;
 Game.MoveQueue = [];
 Game.MoveBulletsQueue = [];
 Game.BulletTime = 0;
+Game.IntroText;
+Game.PlayerCount = 0;
+Game.PlayerText;
+Game.Enemies;
+Game.Bullets;
+Game.Explosions;
 
 // Over arching Game Object
 $('#game').empty();
@@ -34,6 +40,9 @@ Game.preload = function () {
     game.load.image('ship', 'Ship/thrust_ship2.png');
     game.load.image('bullet', 'Ship/bullet0.png');
     game.load.image('starfield', 'Platform/starfield.png');
+    game.load.spritesheet('invader', 'Enemies/invader32x32x4.png', 32, 32);
+    game.load.image('enemyBullet', 'Enemies/enemy-bullet.png');
+    game.load.spritesheet('kaboom', 'Environment/explode.png', 128, 128);
 };
 
 // Create The Game Space and Settings
@@ -45,18 +54,38 @@ Game.create = function () {
     //  The scrolling starfield background
     Game.BackGround = game.add.tileSprite(0, 0, 1024, 768, 'starfield');
 
-    Game.Bullets = game.add.physicsGroup();
-    Game.Bullets.createMultiple(32, 'bullet', false);
-    Game.Bullets.setAll('checkWorldBounds', true);
-    Game.Bullets.setAll('outOfBoundsKill', true);
-
     //Call New Player and New BulletGroup
     GameClient.askNewPlayer(Game.CurrentPlayerName);
     GameClient.getAllPlayers();
 
+    //  Create  An explosion pool
+    Game.Explosions = game.add.group();
+    Game.Explosions.createMultiple(30, 'kaboom');
+    Game.Explosions.forEach(Game.SetupInvader, this);
+
+    //Create Bullet Group
+    Game.Bullets = game.add.group();
+    Game.Bullets.enableBody = true;
+    Game.Bullets.physicsBodyType = Phaser.Physics.ARCADE;
+    Game.Bullets.setAll('outOfBoundsKill', true);
+    Game.Bullets.setAll('checkWorldBounds', true);
+
+    //Create Invaders Group
+    Game.Enemies = game.add.group();
+    Game.Enemies.enableBody = true;
+    Game.Enemies.physicsBodyType = Phaser.Physics.ARCADE;
+
     //Setup Input
     Game.cursors = game.input.keyboard.createCursorKeys();
     Game.fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+    //Start Game Mech
+    Game.PlayerText = game.add.text(10, 10, 'Player Count: 1', { font: "26px Arial", fill: "#ffffff", align: "right" });
+    Game.IntroText = game.add.text(game.world.centerX, 400, '- [enter] to start -', { font: "40px Arial", fill: "#ffffff", align: "center" });
+    Game.IntroText.anchor.setTo(0.5, 0.5);
+    Game.IntroText.bringToTop();
+    var startKey = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
+    startKey.onDown.add(Game.StartGame, this);
 };
 
 // The Game Update Method (Movement/Background/Etc)
@@ -108,17 +137,94 @@ Game.update = function () {
             }
         }
 
+        //If Items in the Queue
+        if (Game.MoveBulletsQueue.length > 0) {
+            //Send to Server
+            GameClient.saveBulletInformation(Game.MoveBulletsQueue);
+        }
+
         //Loop through Bullets
         for (var c = 0; c < Game.MoveBulletsQueue.length; c++) {
+            //Loop through movement updates
             var bullet = Game.MoveBulletsQueue.shift();
             if (bullet) {
                 Game.moveOtherBullet(bullet.BulletID, bullet.PlayerID);
             }
         }
+
+        //  Run collision
+        game.physics.arcade.overlap(Game.Bullets, Game.Enemies, Game.CollisionHandler, null, this);
     }
 };
 
 //// --------- Custom Methods for Multiplayer/etc ----------------------------------------->
+//Alien Collision Handler
+Game.CollisionHandler = function (bullet, alien) {
+    //  When a bullet hits an alien we kill them both
+    bullet.kill();
+    alien.kill();
+
+    //  Increase the score
+    //score += 20;
+    //scoreText.text = scoreString + score;
+    //This is where taking the Bullet ID would allow us to Tag Score to Players
+
+    //  And create an explosion :)
+    var explosion = Game.Explosions.getFirstExists(false);
+    explosion.reset(alien.body.x, alien.body.y);
+    explosion.play('kaboom', 30, false, true);
+
+    //if (aliens.countLiving() == 0) {
+    //    score += 1000;
+    //    scoreText.text = scoreString + score;
+
+    //    enemyBullets.callAll('kill', this);
+    //    stateText.text = " You Won, \n Click to restart";
+    //    stateText.visible = true;
+
+    //    //the "click to restart" handler
+    //    game.input.onTap.addOnce(restart, this);
+    //}
+};
+
+//Start Game Method
+Game.StartGame = function () {
+    Game.IntroText.visible = false;
+    //Summon NPCs
+    Game.CreateInvaders();
+};
+
+//Creates and Starts Moving Invaders
+Game.CreateInvaders = function () {
+    for (var y = 0; y < (3 + Game.PlayerCount); y++) {
+        for (var x = 0; x < 16; x++) {
+            var alien = Game.Enemies.create(x * 48, y * 50, 'invader');
+            alien.anchor.setTo(0.5, 0.5);
+            alien.animations.add('fly', [0, 1, 2, 3], 20, true);
+            alien.play('fly');
+            alien.body.moves = false;
+        }
+    }
+
+    Game.Enemies.x = 100;
+    Game.Enemies.y = 70;
+
+    var speed = 2300 - (Game.PlayerCount * 150);
+
+    //  All this does is basically start the invaders moving. Notice we're moving the Group they belong to, rather than the invaders directly.
+    var tween = game.add.tween(Game.Enemies).to({ x: 200 }, speed, Phaser.Easing.Linear.None, true, 0, 1000, true);
+
+    //  When the tween loops it calls descend
+    tween.onRepeat.add(function () { Game.Enemies.y += 10; }, this);
+};
+
+// Setup Invader Explosion
+Game.SetupInvader = function (invader) {
+    invader.anchor.x = 0.5;
+    invader.anchor.y = 0.5;
+    invader.animations.add('kaboom');
+};
+
 //Updates the Player Locations
 Game.getAllPlayers = function (playersArr) {
     //Loop through Array
@@ -160,6 +266,10 @@ Game.addNewPlayer = function (playerObj) {
     //Add Player to Map
     Game.playerMap[playerObj.Id] = player;
 
+    //Update Player Count
+    Game.PlayerCount++;
+    Game.PlayerText.text = 'Player Count: ' + Game.PlayerCount;
+
     //If client ID Null Set it
     if (Game.CurrentPlayerId === null) {
         Game.CurrentPlayerId = GameClient.getHubID();
@@ -184,6 +294,10 @@ Game.removePlayer = function (playerObj) {
         Game.playerMap[playerObj.Id].destroy();
         delete Game.playerMap[playerObj.Id];
     }
+
+    //Update Player Count
+    Game.PlayerCount--;
+    Game.PlayerText.text = 'Player Count: ' + Game.PlayerCount;
 }
 
 //Move Bullet
@@ -205,6 +319,7 @@ Game.moveOtherBullet = function (bulletId, playerId) {
             bullet.checkWorldBounds = true;
             bullet.outOfBoundsKill = true;
             Game.bulletMap[bulletId] = bullet;
+            Game.Bullets.add(bullet);
         }
     }
 }

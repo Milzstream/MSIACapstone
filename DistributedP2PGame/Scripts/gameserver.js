@@ -35,6 +35,11 @@ GameClient.movePlayer = function (playerId, xPosition) {
     GameClient.playerHub.server.movePlayer(playerId, xPosition);
 };
 
+//Send Bullet Info to Server
+GameClient.saveBulletInformation = function (bulletArr) {
+    GameClient.playerHub.server.saveBulletInformation(bulletArr);
+};
+
 // ------------ > Calls From the Server Below (Calls to the Server Above) ---------->
 
 //Setup Hub New Player Call

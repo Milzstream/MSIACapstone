@@ -79,6 +79,28 @@ namespace DistributedP2PGame
             Clients.Others.getAllPlayers(players.ToArray());
         }
 
+        //Save BulletMap
+        public void SaveBulletInformation(BulletMap[] bulletsArr)
+        {
+            //Loop through Bullets
+            for(int i = 0; i < bulletsArr.Length; i++)
+            {
+                var player = players.Where(p => p.Id == bulletsArr[i].PlayerID).First();
+                player.Bullets = player.Bullets.Where(b => b.Id != bulletsArr[i].BulletID).ToList();
+                players.Remove(player);
+                players.Add(player);
+            }
+        }
+    }
+
+    //BulletMap Data
+    public sealed class BulletMap
+    {
+        //BulletID
+        public string BulletID { get; set; }
+
+        //Player ID
+        public string PlayerID { get; set; }
     }
 
     //Player Obj
@@ -116,5 +138,20 @@ namespace DistributedP2PGame
     public sealed class Bullet
     {
         public string Id { get; set; }
+        public override bool Equals(object obj)
+        {
+            //Check Bullets
+            Bullet bullet = (Bullet)obj;
+
+            //Null Check
+            if(bullet != null)
+            {
+                if(bullet.Id == Id)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }
