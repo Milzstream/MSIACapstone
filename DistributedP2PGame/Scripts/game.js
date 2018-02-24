@@ -12,10 +12,12 @@ Game.MoveBulletsQueue = [];
 Game.BulletTime = 0;
 Game.IntroText;
 Game.PlayerCount = 0;
+Game.PlayerReadyCount = 0;
 Game.PlayerText;
 Game.Enemies;
 Game.Bullets;
 Game.Explosions;
+Game.Started = false;
 
 // Over arching Game Object
 $('#game').empty();
@@ -24,9 +26,13 @@ game.state.add('Game', Game);
 
 // Set PlayerName (and Start Game)
 Game.SetPlayerName = function (currentPlayerName) {
-    Game.CurrentPlayerName = currentPlayerName;
-    game.state.start('Game');
-    Game.Active = true;
+    if (!Game.Started) {
+        Game.CurrentPlayerName = currentPlayerName;
+        game.state.start('Game');
+        Game.Active = true;
+    } else {
+        alert("Game in Progress");
+    }
 };
 
 // Init the Game
@@ -81,11 +87,11 @@ Game.create = function () {
 
     //Start Game Mech
     Game.PlayerText = game.add.text(10, 10, 'Player Count: 1', { font: "26px Arial", fill: "#ffffff", align: "right" });
-    Game.IntroText = game.add.text(game.world.centerX, 400, '- [enter] to start -', { font: "40px Arial", fill: "#ffffff", align: "center" });
+    Game.IntroText = game.add.text(game.world.centerX, 400, '- [enter] to start 0 of 1 Players Ready -', { font: "40px Arial", fill: "#ffffff", align: "center" });
     Game.IntroText.anchor.setTo(0.5, 0.5);
     Game.IntroText.bringToTop();
     var startKey = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
-    startKey.onDown.add(Game.StartGame, this);
+    startKey.onDown.add(GameClient.requestGameStart, this);
 };
 
 // The Game Update Method (Movement/Background/Etc)
@@ -98,6 +104,15 @@ Game.update = function () {
 
         //Get Player
         var player = Game.playerMap[Game.CurrentPlayerId];
+
+        //Check Status of Game Start
+        if (!Game.Started) {
+            if (Game.PlayerCount <= Game.PlayerReadyCount) {
+                Game.StartGame();
+            } else {
+                Game.IntroText.text = "-[enter] to start " + Game.PlayerReadyCount + " of " + Game.PlayerCount + " Players Ready " + "-";
+            }
+        }
 
         //Player Movements to/from/client
         if (player !== null) {
@@ -169,6 +184,9 @@ Game.CollisionHandler = function (bullet, alien) {
     //scoreText.text = scoreString + score;
     //This is where taking the Bullet ID would allow us to Tag Score to Players
 
+    //Update Scores
+    GameClient.updateScores(bullet.customPlayerID);
+
     //  And create an explosion :)
     var explosion = Game.Explosions.getFirstExists(false);
     explosion.reset(alien.body.x, alien.body.y);
@@ -190,6 +208,7 @@ Game.CollisionHandler = function (bullet, alien) {
 //Start Game Method
 Game.StartGame = function () {
     Game.IntroText.visible = false;
+    Game.Started = true;
     //Summon NPCs
     Game.CreateInvaders();
 };
@@ -298,7 +317,12 @@ Game.removePlayer = function (playerObj) {
     //Update Player Count
     Game.PlayerCount--;
     Game.PlayerText.text = 'Player Count: ' + Game.PlayerCount;
-}
+
+    //Game Re-Startable
+    if (Game.PlayerCount == 0 && Game.Started) {
+        Game.Started = false;
+    }
+};
 
 //Move Bullet
 Game.moveOtherBullet = function (bulletId, playerId) {
@@ -314,6 +338,7 @@ Game.moveOtherBullet = function (bulletId, playerId) {
         } else {
             bullet = game.add.sprite(player.body.x + 6, player.body.y - 12, 'bullet');
             bullet.z = 2;
+            bullet.customPlayerID = playerId;
             game.physics.arcade.enable(bullet);
             bullet.body.velocity.y = -600;
             bullet.checkWorldBounds = true;

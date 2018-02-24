@@ -40,7 +40,31 @@ GameClient.saveBulletInformation = function (bulletArr) {
     GameClient.playerHub.server.saveBulletInformation(bulletArr);
 };
 
+//Send Game Start Request
+GameClient.requestGameStart = function () {
+    GameClient.playerHub.server.requestGameStart();
+};
+
+//Send and Track Scores
+GameClient.updateScores = function (playerId) {
+    GameClient.playerHub.server.updateScores(playerId);
+};
+
 // ------------ > Calls From the Server Below (Calls to the Server Above) ---------->
+
+//UpdateScores
+GameClient.playerHub.client.updateScores = function (playersArr) {
+    //Execute Updates
+    $("#scores-container").empty();
+    for (var i = 0; i < playersArr.length; i++) {
+        $("#scores-container").append("<li>" + playersArr[i].Name + " : " + playersArr[i].Score + "</li>");
+    }
+};
+
+//Recieved Start Request
+GameClient.playerHub.client.requestGameStart = function () {
+    Game.PlayerReadyCount++;
+};
 
 //Setup Hub New Player Call
 GameClient.playerHub.client.newPlayer = function (playerObj) {

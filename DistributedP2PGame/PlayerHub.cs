@@ -25,6 +25,28 @@ namespace DistributedP2PGame
             Clients.All.broadcastMessage(name, message);
         }
 
+        //Send Request to Start Game (recieved)
+        public void RequestGameStart()
+        {
+            //Emit Request
+            Clients.All.requestGameStart();
+        }
+
+        //Update Scores
+        public void UpdateScores(string playerId)
+        {
+            //Player Score
+            Player player = players.First(p => p.Id == playerId);
+            player.Score += 100;
+            players.Remove(player);
+            players.Add(player);
+
+            players = players.OrderBy(p => p.Name).ToList();
+
+            //Emit Score Updates
+            Clients.All.updateScores(players.ToArray());
+        }
+
         //Creates a new Player
         public void NewPlayer(string name)
         {
@@ -109,6 +131,9 @@ namespace DistributedP2PGame
         //UniqueID
         public string Id { get; set; }
 
+        //Scores
+        public int Score { get; set; }
+
         //Name
         public string Name { get; set; }
 
@@ -153,5 +178,13 @@ namespace DistributedP2PGame
             }
             return false;
         }
+    }
+
+
+    //Invader Object
+    public sealed class Invader
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
     }
 }
